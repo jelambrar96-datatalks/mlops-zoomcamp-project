@@ -1,0 +1,25 @@
+# file of credentials
+# and configurations
+.env
+
+# python virtual env
+.venv
+env
+venv
+
+# conda env
+.conda
+
+# airflow
+airflow/logs
+airflow/mlflow*
+airflow/tmp
+airflow/dags/__pycache__
+
+# no used on project
+data
+demos
+
+# mlflow outputs
+mlflow/artifacts
+mlflow/mlruns
