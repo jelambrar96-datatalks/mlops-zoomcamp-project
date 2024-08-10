@@ -307,10 +307,10 @@ def create_dataset(
     df_test  = df[ind_80:]
 
     # logging.info(", ".join(df.columns))
-    dv_path = "/tmp/dv.pickle"
+    dv_path = "/tmp/dict_vectorizer.pkl"
     dump_pickle(dv, dv_path)
     dv_s3_path = get_base_pattern_dataset_file(download_date=download_date)
-    s3_client.upload_file(dv_path, S3_BUCKET_NAME, f"{dv_s3_path}/dv.pickle")
+    s3_client.upload_file(dv_path, S3_BUCKET_NAME, f"{dv_s3_path}/dict_vectorizer.pkl")
 
     if len(list(df_train.columns)) != len(set(df_train.columns)):
         columns_str = ", ".join(df_train.columns)
@@ -396,12 +396,15 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
     """
     train sklearn model
     """
-    artifact_path = f'{model_name}-{download_date}'
+    # artifact_path = f'{model_name}-{download_date}'
+    artifact_path = f'{model_name}'
     download_date = datetime.strptime(download_date, "%Y-%m-%d")
     # load data from localstack
     key_train = get_read_patern_dataset_file(file_basename="train", download_date=download_date)
     key_test  = get_read_patern_dataset_file(file_basename="test", download_date=download_date)
     key_val   = get_read_patern_dataset_file(file_basename="val", download_date=download_date)
+    base_key_dv = get_base_pattern_dataset_file(download_date=download_date)
+    key_dv = f"{base_key_dv}/dict_vectorizer.pkl"
 
     print(key_train)
     logging.info(key_train)
@@ -420,9 +423,9 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         target="target"
     )
 
-
+    experiment_name = "mlops-zoomcamp-experiment"
     mlflow.set_tracking_uri("http://mlflow:5000") # taken from docker compose
-    mlflow.set_experiment("mlops-zoomcamp-experiment")
+    mlflow.set_experiment(experiment_name=experiment_name)
 
     local_artifacts_path = "/tmp/artifacts"
     os.makedirs(local_artifacts_path, exist_ok=True)
@@ -441,6 +444,7 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         mlflow.log_param("train-data-path", key_train)
         mlflow.log_param("test-data-path",  key_test)
         mlflow.log_param("valid-data-path", key_val)
+        mlflow.log_param("dict-vectorizer-path", key_dv)
 
         mse, rmse, mae, r2 = eval_metrics(y_test, y_pred_1)
         mlflow.log_metric("rmse", rmse)
@@ -464,6 +468,9 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
 
         print(model_info)
         logging.info(model_info)
+
+        dv_path = f"{mlflow.get_artifact_uri()}/{model_name}/dict_vectorizer.pkl"
+        s3_client.download_file(S3_BUCKET_NAME, key_dv, dv_path)
 
 
 task_train_linear_regression = PythonOperator(
