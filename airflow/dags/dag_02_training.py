@@ -440,11 +440,15 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         y_pred_1 = sklearn_model.predict(x_test)
         signature_1 = infer_signature(x_test, y_pred_1)
 
+        local_model_path =f"{mlflow.get_artifact_uri()}/{model_name}"
+
         mlflow.log_params(sklearn_model.get_params())
         mlflow.log_param("train-data-path", key_train)
         mlflow.log_param("test-data-path",  key_test)
         mlflow.log_param("valid-data-path", key_val)
         mlflow.log_param("dict-vectorizer-path", key_dv)
+        mlflow.log_param("local_model_path", local_model_path)
+        mlflow.log_param("model_name", model_name)
 
         mse, rmse, mae, r2 = eval_metrics(y_test, y_pred_1)
         mlflow.log_metric("rmse", rmse)
@@ -460,7 +464,7 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         # mlflow.sklearn.log_artifact(artifact_path)
         model_info = mlflow.sklearn.log_model(
             sk_model=sklearn_model,
-            artifact_path=artifact_path,
+            artifact_path=model_name,
             # artifact_path=f"sklearn-model-artifacts-{final_name}",
             signature=signature_1,
             registered_model_name=model_name
