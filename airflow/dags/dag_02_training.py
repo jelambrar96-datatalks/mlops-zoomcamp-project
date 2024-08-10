@@ -5,6 +5,7 @@ train and eval model
 from io import BytesIO
 import os
 
+import pickle
 import logging
 
 from datetime import datetime, timedelta
@@ -167,15 +168,27 @@ def get_parquet_files(
     return output_df
 
 
+def get_base_pattern_dataset_file(download_date: datetime) -> str :
+    """
+    get_base_pattern_dataset_file
+    """
+    path_to_save = "nyc-taxi-data/datasets/year={year:04d}/month={month:02d}" # pylint: disable=line-too-long
+    path_to_save = path_to_save.format(
+        year=download_date.year,
+        month=download_date.month,
+    )
+    return path_to_save
+
+
 def get_patern_dataset_file(file_basename: str, download_date: datetime) -> str :
     """
     store data
     """
-    path_to_save = "s3://{s3_bucket_name}/nyc-taxi-data/datasets/year={year:04d}/month={month:02d}/{basename}.parquet" # pylint: disable=line-too-long
+    base_path = get_base_pattern_dataset_file(download_date=download_date)
+    path_to_save = "s3://{s3_bucket_name}/{base_path}/{basename}.parquet" # pylint: disable=line-too-long
     path_to_save = path_to_save.format(
         s3_bucket_name=S3_BUCKET_NAME,
-        year=download_date.year,
-        month=download_date.month,
+        base_path=base_path,
         basename=file_basename
     )
     return path_to_save
@@ -197,6 +210,17 @@ def dataframe_to_s3(
         index=False,
         storage_options=STORAGE_OPTIONS,
     )
+
+
+def dump_pickle(obj, filename: str) -> None:
+    """
+    store object using pickle
+    """
+    try:
+        with open(filename, "wb") as f_out:
+            pickle.dump(obj, f_out)
+    finally:
+        pass
 
 
 def csr_to_df(x_csr, y_csr):
@@ -283,6 +307,10 @@ def create_dataset(
     df_test  = df[ind_80:]
 
     # logging.info(", ".join(df.columns))
+    dv_path = "/tmp/dv.pickle"
+    dump_pickle(dv, dv_path)
+    dv_s3_path = get_base_pattern_dataset_file(download_date=download_date)
+    s3_client.upload_file(dv_path, S3_BUCKET_NAME, f"{dv_s3_path}/dv.pickle")
 
     if len(list(df_train.columns)) != len(set(df_train.columns)):
         columns_str = ", ".join(df_train.columns)
