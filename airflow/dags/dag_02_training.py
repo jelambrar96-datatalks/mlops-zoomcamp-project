@@ -253,7 +253,7 @@ def create_dataset(
         s3_object=s3_client,
         sample=n_sample)
 
-    df["pickup_weekday"] = df["pickup_datetime"].apply(lambda x: str(x.weekday))
+    df["pickup_weekday"] = df["pickup_datetime"].apply(lambda x: str(x.weekday()))
     df["pickup_minutes"] = df["pickup_datetime"].apply(lambda x: x.hour + 60 * x.minute)
     df["PULocationID"] = "PU_" + df["PULocationID"]
     df["DOLocationID"] = "DO_" + df["DOLocationID"]
