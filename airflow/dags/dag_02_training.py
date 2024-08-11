@@ -5,6 +5,7 @@ train and eval model
 from io import BytesIO
 import os
 
+import pickle
 import logging
 
 from datetime import datetime, timedelta
@@ -167,15 +168,27 @@ def get_parquet_files(
     return output_df
 
 
+def get_base_pattern_dataset_file(download_date: datetime) -> str :
+    """
+    get_base_pattern_dataset_file
+    """
+    path_to_save = "nyc-taxi-data/datasets/year={year:04d}/month={month:02d}" # pylint: disable=line-too-long
+    path_to_save = path_to_save.format(
+        year=download_date.year,
+        month=download_date.month,
+    )
+    return path_to_save
+
+
 def get_patern_dataset_file(file_basename: str, download_date: datetime) -> str :
     """
     store data
     """
-    path_to_save = "s3://{s3_bucket_name}/nyc-taxi-data/datasets/year={year:04d}/month={month:02d}/{basename}.parquet" # pylint: disable=line-too-long
+    base_path = get_base_pattern_dataset_file(download_date=download_date)
+    path_to_save = "s3://{s3_bucket_name}/{base_path}/{basename}.parquet" # pylint: disable=line-too-long
     path_to_save = path_to_save.format(
         s3_bucket_name=S3_BUCKET_NAME,
-        year=download_date.year,
-        month=download_date.month,
+        base_path=base_path,
         basename=file_basename
     )
     return path_to_save
@@ -197,6 +210,17 @@ def dataframe_to_s3(
         index=False,
         storage_options=STORAGE_OPTIONS,
     )
+
+
+def dump_pickle(obj, filename: str) -> None:
+    """
+    store object using pickle
+    """
+    try:
+        with open(filename, "wb") as f_out:
+            pickle.dump(obj, f_out)
+    finally:
+        pass
 
 
 def csr_to_df(x_csr, y_csr):
@@ -229,7 +253,7 @@ def create_dataset(
         s3_object=s3_client,
         sample=n_sample)
 
-    df["pickup_weekday"] = df["pickup_datetime"].apply(lambda x: str(x.weekday))
+    df["pickup_weekday"] = df["pickup_datetime"].apply(lambda x: str(x.weekday()))
     df["pickup_minutes"] = df["pickup_datetime"].apply(lambda x: x.hour + 60 * x.minute)
     df["PULocationID"] = "PU_" + df["PULocationID"]
     df["DOLocationID"] = "DO_" + df["DOLocationID"]
@@ -283,6 +307,10 @@ def create_dataset(
     df_test  = df[ind_80:]
 
     # logging.info(", ".join(df.columns))
+    dv_path = "/tmp/dict_vectorizer.pkl"
+    dump_pickle(dv, dv_path)
+    dv_s3_path = get_base_pattern_dataset_file(download_date=download_date)
+    s3_client.upload_file(dv_path, S3_BUCKET_NAME, f"{dv_s3_path}/dict_vectorizer.pkl")
 
     if len(list(df_train.columns)) != len(set(df_train.columns)):
         columns_str = ", ".join(df_train.columns)
@@ -368,12 +396,15 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
     """
     train sklearn model
     """
-    artifact_path = f'{model_name}-{download_date}'
+    # artifact_path = f'{model_name}-{download_date}'
+    artifact_path = f'{model_name}'
     download_date = datetime.strptime(download_date, "%Y-%m-%d")
     # load data from localstack
     key_train = get_read_patern_dataset_file(file_basename="train", download_date=download_date)
     key_test  = get_read_patern_dataset_file(file_basename="test", download_date=download_date)
     key_val   = get_read_patern_dataset_file(file_basename="val", download_date=download_date)
+    base_key_dv = get_base_pattern_dataset_file(download_date=download_date)
+    key_dv = f"{base_key_dv}/dict_vectorizer.pkl"
 
     print(key_train)
     logging.info(key_train)
@@ -392,9 +423,9 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         target="target"
     )
 
-
+    experiment_name = "mlops-zoomcamp-experiment"
     mlflow.set_tracking_uri("http://mlflow:5000") # taken from docker compose
-    mlflow.set_experiment("mlops-zoomcamp-experiment")
+    mlflow.set_experiment(experiment_name=experiment_name)
 
     local_artifacts_path = "/tmp/artifacts"
     os.makedirs(local_artifacts_path, exist_ok=True)
@@ -409,10 +440,15 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         y_pred_1 = sklearn_model.predict(x_test)
         signature_1 = infer_signature(x_test, y_pred_1)
 
+        local_model_path =f"{mlflow.get_artifact_uri()}/{model_name}"
+
         mlflow.log_params(sklearn_model.get_params())
         mlflow.log_param("train-data-path", key_train)
         mlflow.log_param("test-data-path",  key_test)
         mlflow.log_param("valid-data-path", key_val)
+        mlflow.log_param("dict-vectorizer-path", key_dv)
+        mlflow.log_param("local_model_path", local_model_path)
+        mlflow.log_param("model_name", model_name)
 
         mse, rmse, mae, r2 = eval_metrics(y_test, y_pred_1)
         mlflow.log_metric("rmse", rmse)
@@ -428,7 +464,7 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
         # mlflow.sklearn.log_artifact(artifact_path)
         model_info = mlflow.sklearn.log_model(
             sk_model=sklearn_model,
-            artifact_path=artifact_path,
+            artifact_path=model_name,
             # artifact_path=f"sklearn-model-artifacts-{final_name}",
             signature=signature_1,
             registered_model_name=model_name
@@ -436,6 +472,9 @@ def train_sklearn_model(download_date, sklearn_model, model_name):
 
         print(model_info)
         logging.info(model_info)
+
+        dv_path = f"{mlflow.get_artifact_uri()}/{model_name}/dict_vectorizer.pkl"
+        s3_client.download_file(S3_BUCKET_NAME, key_dv, dv_path)
 
 
 task_train_linear_regression = PythonOperator(
