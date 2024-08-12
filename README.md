@@ -22,4 +22,106 @@ Applying machine learning to predict taxi trip durations offers several advantag
 
 Leveraging machine learning models and adopting MLOps practices is key to addressing the challenge of predicting taxi trip durations in New York City. This approach not only enhances the precision of predictions but also ensures the sustainability and relevance of the models in a dynamic environment.
 
+_____________________________
+
+## 2. Reproducibility:
+
+### 2.1 Instructions to Start the Project
+
+1. **Clone the Project Repository:**
+   If you haven't already, clone the project repository to your local machine:
+   ```bash
+   git clone https://github.com/jelambrar96-datatalks/mlops-zoomcamp-project
+   cd mlops-zoomcamp-project
+   ```
+
+2. **Set Up the Environment:**
+   Ensure the `.env` file is in the project root directory. This file contains all the necessary environment variables. If it’s not already created, create it and copy the content provided above into the file.
+
+   This is a example of `.env` file.
+
+```bash
+### ENV VARIABLES
+PROJECT_NAME="mlops-zoomcamp"
+
+### FOR LOCALSTACK
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
+AWS_DEFAULT_REGION=us-east-1
+
+S3_BUCKET_NAME="${PROJECT_NAME}-bucket"
+
+### FOR AIRFLOW
+AIRFLOW_IMAGE_NAME="apache/airflow:2.9.3"
+AIRFLOW_UID=1000
+AIRFLOW_PROJ_DIR="./airflow"
+_AIRFLOW_WWW_USER_USERNAME="airflow"
+_AIRFLOW_WWW_USER_PASSWORD="airflow"
+_PIP_ADDITIONAL_REQUIREMENTS="boto3==1.34.131 localstack==3.6.0 mlflow==2.15.1 numpy==1.26.4 pandas==2.1.4 pyarrow==15.0.2 requests==2.32.3 scikit-learn==1.5.1 s3fs==2024.6.1"
+
+AIRFLOW_START_TIME="2023-01-01"
+
+# MLFLOW
+MLFLOW_PORT=5001
+MLFLOW_POSTGRES_USER=mlflow
+MLFLOW_POSTGRES_PASS=mlflow
+MLFLOW_BUCKET=mlflow-bucket
+
+# GRAFANA
+GRAFANA_PORT=3000
+GRAFANA_POSTGRES_USER=grafana
+GRAFANA_POSTGRES_PASS=grafana
+``` 
+
+3. **Build the Docker Images:**
+   Some services require building Docker images from custom Dockerfiles. Use the following command to build those images:
+   ```bash
+   docker-compose build
+   ```
+
+4. **Start the Docker Containers:**
+   To start all the services defined in the `docker-compose.yml` file, run:
+   ```bash
+   docker-compose up -d
+   ```
+   The `-d` flag runs the containers in detached mode, meaning they will run in the background.
+
+5. **Verify All Services Are Running:**
+   Use the following command to list all running containers and verify that everything started correctly:
+   ```bash
+   docker-compose ps
+   ```
+
+### 2.2 Available Applications and Ports on Host
+
+Once the project is running, the following applications will be available on your host:
+
+1. **Airflow Webserver:**
+   - **URL:** `http://localhost:8080`
+   - **Port:** 8080
+
+2. **Flower (Celery Monitoring Tool):**
+   - **URL:** `http://localhost:5555`
+   - **Port:** 5555
+
+3. **Mlflow Tracking Server:**
+   - **URL:** `http://localhost:5001`
+   - **Port:** 5001
+
+4. **Grafana Dashboard:**
+   - **URL:** `http://localhost:3000`
+   - **Port:** 3000
+
+5. **Flask Application:**
+   - **URL:** `http://localhost:8000`
+   - **Port:** 8000
+
+### 2.3 Notes
+
+- Ensure Docker and Docker Compose are installed on your machine before running these commands.
+- If any service fails to start, check the logs using `docker-compose logs <service_name>`.
+- You can stop all services by running `docker-compose down`, which will also remove the containers.
+
+_____________________________
+
 
