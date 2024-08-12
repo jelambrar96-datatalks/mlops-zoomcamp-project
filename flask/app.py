@@ -1,26 +1,48 @@
 """
-flask app
+Flask application for serving machine learning predictions.
+
+This application loads a machine learning model and serves predictions via a REST API.
+It interacts with S3 for model storage and uses LocalStack for local development.
+The model predicts outcomes based on ride data, such as pickup and dropoff locations.
+
+Modules:
+    json
+    os
+    pickle
+    datetime
+    boto3
+    flask
+    numpy
+    pandas
+    sklearn
+    mlflow
+
+Classes:
+    ModelLoader
+
+Functions:
+    prepare_features(ride)
+    reload_endpoint()
+    predict_endpoint()
+    index()
+
 """
 
 import json
 import os
 import pickle
-
 from datetime import datetime
 
 import boto3
-
 from flask import Flask, request, jsonify
-
 
 import numpy
 import pandas as pd
 import sklearn
 import mlflow
-
 from sklearn.base import clone
 
-
+# Load AWS credentials and S3 bucket information from environment variables
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
@@ -31,7 +53,6 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 MODEL_S3_PATH = os.getenv("MODEL_S3_PATH")
 METADATA_S3_PATH = os.getenv("METADATA_S3_PATH")
 DV_S3_PATH = os.getenv("DV_S3_PATH")
-
 
 # Create a session to interact with LocalStack
 session = boto3.Session(
@@ -46,24 +67,39 @@ s3_client = session.client(
     endpoint_url=S3_ENDPOINT_URL,
 )
 
-
+# Create a temporary directory for storing the model and vectorizer locally
 TEMP_MODEL_DIR = "/tmp/model/skmodel"
 os.makedirs(TEMP_MODEL_DIR, exist_ok=True)
 
-
 class ModelLoader:
     """
-    class save model
+    Class to manage loading and prediction using a machine learning model.
+
+    Attributes:
+        _model (object): The machine learning model.
+        _dict_vectorizer (object): A dictionary vectorizer for feature transformation.
+        _metadata_model (object): Metadata associated with the model.
+
+    Methods:
+        reload(): Reloads the model and vectorizer from S3.
+        predict(df_values: pd.DataFrame) -> list: Predicts outputs using the loaded model.
+        get_metadata(): Retrieves metadata from the model.
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initializes the ModelLoader class with no model or vectorizer loaded.
+        """
         self._model = None
         self._dict_vectorizer = None
         self._metadata_model = None
 
     def reload(self):
         """
-        load model
+        Load the model and vectorizer from S3 and save them locally.
+
+        Returns:
+            bool: True if the model and vectorizer are successfully loaded, False otherwise.
         """
         op = False
         try:
@@ -71,8 +107,7 @@ class ModelLoader:
             print(MODEL_S3_PATH)
             s3_client.download_file(S3_BUCKET_NAME, MODEL_S3_PATH, model_local_path)
             self._model = pickle.load(open(model_local_path, 'rb'))
-            # self._model = mlflow.sklearn.load_model(model_local_path)
-            # print(type(self._model))
+
             dv_local_path = f"{TEMP_MODEL_DIR}/dict_vectorizer.pkl"
             s3_client.download_file(S3_BUCKET_NAME, DV_S3_PATH, dv_local_path)
             self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
@@ -85,25 +120,30 @@ class ModelLoader:
 
     def predict(self, df_values: pd.DataFrame) -> list:
         """
-        predict outputs model
+        Predict outputs using the loaded model.
+
+        Args:
+            df_values (pd.DataFrame): DataFrame containing features for prediction.
+
+        Returns:
+            list: Predictions from the model or None if prediction fails.
         """
         if self._dict_vectorizer is None:
             return None
-        # expected_features = self._dict_vectorizer.get_feature_names_out()
-        # input_features = df_values.columns.tolist()
-        # print("Expected Features:", expected_features)
-        # print("Input Features:", input_features)
+
         try:
             x_values = self._dict_vectorizer.transform(df_values.to_dict(orient='records'))
             x_values = pd.DataFrame.sparse.from_spmatrix(x_values).sparse.to_dense()
             columns = dict( (item, str(i)) for i, item in enumerate(x_values.columns))
             x_values = x_values.rename(columns=columns)
-            print(type(x_values))
-            print(x_values.shape)
+            # print(type(x_values))
+            # print(x_values.shape)
         except Exception as  e:
             print(e)
+
         if self._model is None:
             return None
+
         try:
             model_out = self._model.predict(x_values)
         except Exception as e:
@@ -113,15 +153,23 @@ class ModelLoader:
 
     def get_metadata(self):
         """
-        get metadata from model
+        Retrieve metadata from the model.
+
+        Returns:
+            object: Metadata associated with the model.
         """
         return self._metadata_model
 
-
-
-
 def prepare_features(ride):
+    """
+    Prepare features for prediction from ride data.
 
+    Args:
+        ride (dict or list of dict): Dictionary or list of dictionaries containing ride data.
+
+    Returns:
+        pd.DataFrame: DataFrame containing transformed features for the model.
+    """
     if isinstance(ride, dict):
         ride = [ ride ]
     df = pd.DataFrame.from_records(ride)
@@ -147,41 +195,50 @@ def prepare_features(ride):
 
     return df
 
-
+# Instantiate the ModelLoader class
 model_loader = ModelLoader()
+# Instantiate the Flask app
 app = Flask(__name__)
 
-
 @app.route('/reload', methods=['POST'])
-def reaload_endpoint():
+def reload_endpoint():
     """
-    Send sucess message if model reload is success
+    Reload the model and vectorizer via an API call.
+
+    Returns:
+        Response: JSON response indicating success or failure of the reload operation.
     """
     flag = model_loader.reload()
     if flag:
         return jsonify({"result": "success", "reloaded": True})
     return jsonify({"result": "failed", "reloaded": False})
 
-
-
 @app.route('/predict', methods=['POST'])
 def predict_endpoint():
+    """
+    Predict outcomes using the loaded model via an API call.
+
+    Returns:
+        Response: JSON response containing the predictions.
+    """
     ride = request.get_json()["data"]
     features = prepare_features(ride)
     pred = model_loader.predict(features)
     result = "failed"
-    if result is not None:
+    if pred is not None:
         result = "success"
     return jsonify({"result": result, "predictions": pred})
-
 
 @app.route('/', methods=['GET'])
 def index():
     """
-    hello world app
+    Root endpoint to verify the service is running.
+
+    Returns:
+        str: Welcome message indicating the service is running.
     """
     return "Zoomcamp application"
 
-
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=8000)
+
