@@ -365,9 +365,138 @@ services:
     volumes:
       - ./flask:/app
 
+  # ---------------------------------------------------------------------------
+
+  postgresgrafana:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=grafana
+      - POSTGRES_PASSWORD=grafana
+      - POSTGRES_DB=grafana
+    volumes: 
+      - postgres-grafana-volume:/var/lib/postgresql/data
+      - ./postgresgrafana/init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U grafana -d grafana'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana
+    ports:
+    - ${GRAFANA_PORT}:3000
+    volumes:
+      - ./grafana/config/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      # - ./grafana/config/grafana_dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      # - ./grafana/dashboards:/opt/grafana/dashboards
+    depends_on:
+      postgresgrafana:
+        condition: service_healthy
+
+
+  postgresprefect:
+    image: postgres:15.2-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=prefect
+      - POSTGRES_PASSWORD=prefect
+      - POSTGRES_DB=prefect
+    expose:
+      - 5432
+    volumes: 
+      - postgres-prefect-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U prefect -d prefect'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+
+  ### Prefect Server API and UI
+  prefectserver:
+    image: prefecthq/prefect:2.11.5-python3.11
+    restart: always
+    volumes:
+      - prefectserver-volume:/root/.prefect
+      - ./prefectserver/test_server.py:/opt/prefect/test_server.py:ro
+
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
+    environment:
+      - PREFECT_UI_URL=http://127.0.0.1:4200/api
+      - PREFECT_API_URL=http://127.0.0.1:4200/api
+      # If you want to access Prefect Server UI from anywhere other than the Docker host machine, you will need to change
+      # PREFECT_UI_URL and PREFECT_API_URL to match the external hostname/IP of the host machine. For example:
+      #- PREFECT_UI_URL=http://external-ip:4200/api
+      #- PREFECT_API_URL=http://external-ip:4200/api
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@postgresprefect:5432/prefect
+      # Uncomment the following line if you want to use the 'S3 Bucket' storage block instead of the older 'S3' storage
+      # - EXTRA_PIP_PACKAGES=prefect-aws
+    ports:
+      - 4200:4200
+    depends_on:
+      postgresprefect:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 test_server.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+
+  ## Prefect Agent
+  agent:
+    image: prefecthq/prefect:2.11.5-python3.11
+    restart: always
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "YOUR_WORK_QUEUE_NAME"]
+    environment:
+      - PREFECT_API_URL=http://prefectserver:4200/api
+    #    Use PREFECT_API_KEY if connecting the agent to Prefect Cloud
+    #  - PREFECT_API_KEY=YOUR_API_KEY
+    depends_on:
+      prefectserver:
+        condition: service_healthy
+
+
+#   dummydatagenerator:
+#     build:
+#       context: ./dummydatagenerator
+#       dockerfile: Dockerfile
+#     environment:
+#       - START_TIME=$AIRFLOW_START_TIME
+#       - WHILE_TRUE=False
+#       - SEND_TIMEOUT=20
+#       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+#       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+#       - AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
+#       - S3_BUCKET_NAME=$S3_BUCKET_NAME
+#       - POSTGREST_HOST=postgresgrafana
+#       - POSTGREST_PORT=5432
+#       - POSTGREST_USERNAME=$GRAFANA_POSTGRES_USER
+#       - POSTGREST_PASSWORD=$GRAFANA_POSTGRES_PASS
+#       - POSTGREST_DATABASE=grafana
+#       - PREFECT_API_URL=http://prefectserver:4200/api
+#     entrypoint: ["python3", "app.py"]
+#     depends_on:
+#       postgresgrafana:
+#         condition: service_healthy
+#       prefectserver:
+#         condition: service_healthy
+#       localstack:
+#         condition: service_healthy
+
+
+
 
 volumes:
   postgres-db-volume:
   postgres-mlflow-volume:
   postgres-grafana-volume:
   s3-localstack-volume:
+  prefectserver-volume:
+  postgres-prefect-volume:
+
+networks:
+  backend-network:
