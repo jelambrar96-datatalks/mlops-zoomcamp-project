@@ -161,9 +161,6 @@ def function_download_model(download_date: str):
     s3_client.upload_file(local_dv_path, S3_BUCKET_NAME, s3_dv_path)
 
 
-
-
-
 task_download_model = PythonOperator(
     task_id='task_download_model',
     python_callable=function_download_model,
@@ -174,10 +171,29 @@ task_download_model = PythonOperator(
 )
 
 
+def function_reaload_flask_app():
+    """
+    send a post request to reload model
+    """
+    req = requests.post("http://flask-app:8000/reload", timeout=30)
+    if req.status_code != 200:
+        raise ValueError(f"Invalid status code {req.status_code}")
+    if req.json()["result"] != "success":
+        raise ValueError("Invalid response")
+
+
+task_reaload_flask_app = PythonOperator(
+    task_id='task_reaload_flask_app',
+    python_callable=function_reaload_flask_app,
+    dag=dag_03_deploy,
+
+)
+
+
 end_start = DummyOperator(
     task_id="end_start",
     dag=dag_03_deploy
 )
 
 
-task_start >> task_download_model >> end_start # pylint: disable=pointless-statement
+task_start >> task_download_model >> task_reaload_flask_app >> end_start # pylint: disable=pointless-statement
