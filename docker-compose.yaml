@@ -300,6 +300,28 @@ services:
   # ---------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
+  # POSRTGRES NYC
+  # ---------------------------------------------------------------------------
+
+  postgresnyc:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=${NYC_POSTGRES_USERNAME:-nycpostgres}
+      - POSTGRES_PASSWORD=${NYC_POSTGRES_PASSWORD:-nycpostgres}
+      - POSTGRES_DB=${NYC_POSTGRES_DATABASE:-nycpostgres}
+    volumes: 
+      - postgres-nyc-volume:/var/lib/postgresql/data
+      - ./postgresnyc/init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${NYC_POSTGRES_USERNAME:-nycpostgres} -d ${NYC_POSTGRES_DATABASE:-nycpostgres}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+
+
+  # ---------------------------------------------------------------------------
   # MLFLOW
   # ---------------------------------------------------------------------------
   mlflow:
@@ -494,6 +516,7 @@ volumes:
   postgres-db-volume:
   postgres-mlflow-volume:
   postgres-grafana-volume:
+  postgres-nyc-volume:
   s3-localstack-volume:
   prefectserver-volume:
   postgres-prefect-volume:
