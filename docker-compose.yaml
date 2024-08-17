@@ -383,11 +383,10 @@ services:
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
       - S3_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-      - MODEL_S3_PATH="models/skmodels/best_model/model.pkl"
-      - METADATA_S3_PATH="models/skmodels/best_model/model.json"
-      - DV_S3_PATH="models/skmodels/best_model/dict_vectorizer.pkl"
-    volumes:
-      - ./flask:/app
+      - MODEL_S3_PATH=models/skmodels/best_model/model.pkl
+      - METADATA_S3_PATH=models/skmodels/best_model/model.json
+      - DV_S3_PATH=models/skmodels/best_model/dict_vectorizer.pkl
+
 
   # ---------------------------------------------------------------------------
 
