@@ -204,18 +204,53 @@ _______________________________________________________________________________
 
 A Flask API was designed to load the best-performing model stored in S3. This model is then used to predict the duration of taxi trips based on the time of day and the pickup and drop-off locations.
 
-### Advantages of Combining Flask with Machine Learning Applications
+### 6.1. Advantages of Combining Flask with Machine Learning Applications
 
 One of the key advantages of using Flask is its ease of integration with Python-based machine learning applications. Flask is lightweight, flexible, and allows developers to quickly set up web applications that can interact with machine learning models. This combination enables seamless deployment of predictive models, allowing for real-time inference through a simple and efficient web interface.
 
-### API Functionality
+### 6.2. API Functionality
 
 The Flask API is capable of the following:
 
-- **Loading the Best Model**: The API automatically loads the best model, selected based on the lowest RMSE, from the S3 bucket.
-- **Predicting Trip Duration**: Given inputs such as the time of day and the starting and ending locations of a taxi trip, the API processes these inputs through the model to predict the expected trip duration.
+- **Loading the Best Model**: The API automatically loads the best model, selected based on the lowest RMSE, from the S3 bucket, when applicantion receive a POST to `/reload` path. 
+- **Predicting Trip Duration**: Given inputs such as the time of day and the starting and ending locations of a taxi trip, the API processes these inputs through the model to predict the expected trip duration. Application uses `/predict` path to send predicion when a POST method is used. 
 
 This setup ensures that the machine learning model can be accessed and utilized in a production environment, providing accurate and timely predictions for end users.
+
+This is a small code from `app.py`
+
+```python
+
+@app.route('/reload', methods=['POST'])
+def reload_endpoint():
+    """
+    Reload the model and vectorizer via an API call.
+
+    Returns:
+        Response: JSON response indicating success or failure of the reload operation.
+    """
+    flag = model_loader.reload()
+    if flag:
+        return jsonify({"result": "success", "reloaded": True})
+    return jsonify({"result": "failed", "reloaded": False})
+
+@app.route('/predict', methods=['POST'])
+def predict_endpoint():
+    """
+    Predict outcomes using the loaded model via an API call.
+
+    Returns:
+        Response: JSON response containing the predictions.
+    """
+    ride = request.get_json()["data"]
+    features = prepare_features(ride)
+    pred = model_loader.predict(features)
+    result = "failed"
+    if pred is not None:
+        result = "success"
+    return jsonify({"result": result, "predictions": pred})
+
+```
 
 _______________________________________________________________________________
 
@@ -225,20 +260,148 @@ _______________________________________________________________________________
 
 ## 8. Best practices 
 
-### 8.1 Unit test to model deployment
+### 8.1. Unit test to model deployment
 
-### 8.2 Integration test to model deployment 
+```plain
+flask/
+├── app.py
+├── test_app.py
+└── test_requests.py
+```
+#### 8.1. `test_app.py`
 
-### 8.3 Linter and formater code 
+```python
+# test_app.py
+import unittest
+from app import app
+
+class AppTestCase(unittest.TestCase):
+    def setUp(self):
+        # Set up the test client
+        self.app = app.test_client()
+        self.app.testing = True
+
+    def test_reload_route(self):
+        # Test the /reload route
+        response = self.app.post('/reload')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('reloaded', response.get_json()['status'])
+
+    def test_predict_route(self):
+        # Test the /predict route
+        test_data = {'feature1': 1, 'feature2': 2}
+        response = self.app.post('/predict', json=test_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('prediction', response.get_json())
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+1. **Setup Test Client:**
+   - `self.app = app.test_client()` creates a test client for the Flask app. This client can be used to send requests to the app's routes during testing.
+   - `self.app.testing = True` ensures that Flask's error handling behaves as expected during tests.
+
+2. **Test `/reload` Route:**
+   - `response = self.app.post('/reload')` sends a POST request to the `/reload` route.
+   - `self.assertEqual(response.status_code, 200)` checks that the response status code is 200 (OK).
+   - `self.assertIn('reloaded', response.get_json()['status'])` verifies that the response JSON contains the expected "reloaded" status.
+
+3. **Test `/predict` Route:**
+   - `response = self.app.post('/predict', json=test_data)` sends a POST request to the `/predict` route with a JSON payload.
+   - `self.assertEqual(response.status_code, 200)` checks that the response status code is 200 (OK).
+   - `self.assertIn('prediction', response.get_json())` checks that the response JSON contains a "prediction" key.
+
+### Running the Test:
+You can run the test by executing the following command in your terminal:
+
+```bash
+python -m unittest test_app.py
+```
+
+This will run the unit tests and provide output indicating whether the routes are functioning as expected.
 
 
-### 8.4 Makefile 
+### 8.2. Integration test to model deployment 
+
+#### 8.1. `test_requests.py`
+
+- **Purpose**: This file contains a tests for a web service's endpoints using the `unittest` framework.
+
+- **Tests**:
+  - **`test_index`**: Tests the index endpoint (`GET /`). The test checks if the response status code is 200.
+  - **`test_01_reload`**: Tests the reload endpoint (`POST /reload`). It checks if the status code is 200 and if the response JSON contains `"result": "success"`.
+  - **`test_02_predict`**: Tests the predict endpoint (`POST /predict`).
+    - The test fetches a small sample of Parquet data using the `get_parquet_files` function.
+    - The data is preprocessed (replacing NaN values and formatting datetime fields).
+    - The data is then sent as a JSON payload to the predict endpoint.
+    - The test checks if the response contains `"result": "success"`.
+
+This is a fragment taken from `test_requests.py`
+
+```python
+class RequestsTest(unittest.TestCase):
+    """
+    Unit tests for the web service endpoints.
+    """
+
+    def test_index(self):
+        """
+        Test the index endpoint.
+        """
+        req = requests.get("http://localhost:8000", timeout=10)
+        if req.status_code != 200:
+            raise ValueError(f"Invalid status code {req.status_code}")
+
+    def test_01_reload(self):
+        """
+        Test the reload endpoint.
+        """
+        req = requests.post("http://localhost:8000/reload", timeout=30)
+        if req.status_code != 200:
+            raise ValueError(f"Invalid status code {req.status_code}")
+        if req.json()["result"] != "success":
+            raise ValueError("Invalid response")
+
+    def test_02_predict(self):
+        """
+        Test the predict endpoint.
+        """
+        df = get_parquet_files(
+            type_tripdata="yellow",
+            start_datetime=datetime.strptime("2024-01-01", "%Y-%m-%d"),
+            end_datetime=datetime.now(),
+            bucket_name=S3_BUCKET_NAME,
+            s3_object=s3_client,
+            sample=1
+        )
+        df.replace('nan', np.nan, inplace=True)
+        df.replace(np.nan, 0, inplace=True)
+        df["pickup_datetime"] = df["pickup_datetime"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M:%S")) # pylint: disable=line-too-long
+        df["dropoff_datetime"] = df["dropoff_datetime"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M:%S")) # pylint: disable=line-too-long
+        json_df = df.to_dict(orient="records")
+        json_data = {
+            "data": json_df
+        }
+        req = requests.post(
+            url="http://localhost:8000/predict",
+            json=json_data,
+            timeout=30
+        )
+        if req.json()["result"] != "success":
+            raise ValueError("Invalid response")
+```
+
+### 8.3. Linter and formater code 
 
 
-### 8.5 Pre-commit hooks
+### 8.4. Makefile 
 
 
-### CI/CD Pipeline with Jenkins
+### 8.5. Pre-commit hooks
+
+
+### 8.6. CI/CD Pipeline with Jenkins
 
 
 
