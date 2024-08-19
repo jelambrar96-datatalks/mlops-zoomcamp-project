@@ -150,14 +150,72 @@ _______________________________________________________________________________
 
 ## 4. Experiment tracking and model registry with `mlflow`
 
+For experiment tracking and model registry, **MLflow** was utilized throughout the project. The primary goal was to build a machine learning model capable of predicting taxi trip durations based on several key features, including trip distance, pickup and drop-off locations, day of the week, and time of day.
+
+In this process, the following machine learning regression models were registered using MLflow:
+
+1. **Linear Regression**
+2. **Lasso Regression**
+3. **Gradient Boosting**
+4. **Random Forests**
+
+For each model, the following performance metrics were tracked and stored:
+
+- **Root Mean Squared Error (RMSE)**
+- **Mean Squared Error (MSE)**
+- **Mean Absolute Error (MAE)**
+- **R-squared (R²)**
+
+These metrics provided a comprehensive evaluation of the models' accuracy and effectiveness in predicting taxi trip durations, enabling an informed selection of the best-performing model for deployment.
 _______________________________________________________________________________
 
-
 ## 5. Workflow orchestration with airflow
+
+For workflow orchestration, **Airflow** was implemented to manage and automate the various processes involved in the project. Airflow offers several advantages in workflow orchestration:
+
+### Advantages of Airflow in Workflow Orchestration
+
+1. **Scalability**: Airflow can handle complex workflows involving large-scale data processing. It allows for the creation of Directed Acyclic Graphs (DAGs) that can be scaled as needed, whether running on a single machine or distributed across a cluster.
+
+2. **Flexibility**: Airflow provides the flexibility to define workflows in Python, making it easy to integrate with existing codebases and customize workflows according to specific project requirements.
+
+3. **Robust Scheduling**: With Airflow, tasks can be scheduled to run at specific times or triggered based on dependencies. This ensures that processes are executed in the correct order and without manual intervention.
+
+4. **Monitoring and Logging**: Airflow includes built-in monitoring and logging features, which allow for real-time tracking of workflow execution, making it easier to identify and resolve issues promptly.
+
+### Implemented DAGs
+
+Three main DAGs were implemented to manage the end-to-end process:
+
+1. **`dag01_download_data`**: 
+   - **Purpose**: This DAG is responsible for downloading the NYC taxi dataset, applying necessary filtering processes, and storing the cleaned data files within LocalStack. This step ensures that the data is prepared and available for model training.
+
+2. **`dag02_training`**: 
+   - **Purpose**: This DAG is used to build the dataset, train the machine learning models, and register the trained models in MLflow. It automates the entire training pipeline, ensuring consistency and repeatability across model versions.
+
+3. **`dag03_deploy`**: 
+   - **Purpose**: This DAG selects the model with the best Root Mean Squared Error (RMSE) from the models registered in MLflow. It then uploads the selected model to an S3 bucket simulated by LocalStack, where it can be accessed by a Flask application for making predictions.
+
+By leveraging Airflow for workflow orchestration, the project benefits from automated, reliable, and scalable management of data processing, model training, and deployment processes. This approach ensures that each step is executed efficiently and in the correct sequence, facilitating the seamless integration of machine learning models into the production environment.
 
 _______________________________________________________________________________
 
 ## 6. Model deployment with flask
+
+A Flask API was designed to load the best-performing model stored in S3. This model is then used to predict the duration of taxi trips based on the time of day and the pickup and drop-off locations.
+
+### Advantages of Combining Flask with Machine Learning Applications
+
+One of the key advantages of using Flask is its ease of integration with Python-based machine learning applications. Flask is lightweight, flexible, and allows developers to quickly set up web applications that can interact with machine learning models. This combination enables seamless deployment of predictive models, allowing for real-time inference through a simple and efficient web interface.
+
+### API Functionality
+
+The Flask API is capable of the following:
+
+- **Loading the Best Model**: The API automatically loads the best model, selected based on the lowest RMSE, from the S3 bucket.
+- **Predicting Trip Duration**: Given inputs such as the time of day and the starting and ending locations of a taxi trip, the API processes these inputs through the model to predict the expected trip duration.
+
+This setup ensures that the machine learning model can be accessed and utilized in a production environment, providing accurate and timely predictions for end users.
 
 _______________________________________________________________________________
 
