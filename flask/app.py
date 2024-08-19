@@ -28,19 +28,18 @@ Functions:
 
 """
 
-import json
 import os
 import pickle
-from datetime import datetime
 
 import boto3
-from flask import Flask, request, jsonify
 
 import numpy
 import pandas as pd
 import sklearn
 import mlflow
-from sklearn.base import clone
+
+from flask import Flask, request, jsonify
+
 
 # Load AWS credentials and S3 bucket information from environment variables
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -86,7 +85,7 @@ class ModelLoader:
         get_metadata(): Retrieves metadata from the model.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs): # pylint: disable=unused-argument
         """
         Initializes the ModelLoader class with no model or vectorizer loaded.
         """
@@ -101,22 +100,36 @@ class ModelLoader:
         Returns:
             bool: True if the model and vectorizer are successfully loaded, False otherwise.
         """
-        op = False
+        op_model = False
+        model_local_path = f"{TEMP_MODEL_DIR}/model.pkl"
         try:
-            model_local_path = f"{TEMP_MODEL_DIR}/model.pkl"
             print(MODEL_S3_PATH)
             s3_client.download_file(S3_BUCKET_NAME, MODEL_S3_PATH, model_local_path)
             self._model = pickle.load(open(model_local_path, 'rb'))
-
-            dv_local_path = f"{TEMP_MODEL_DIR}/dict_vectorizer.pkl"
-            s3_client.download_file(S3_BUCKET_NAME, DV_S3_PATH, dv_local_path)
-            self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
-
-            op = True
+            op_model = True
         except Exception as e: # pylint: disable=broad-exception-caught
             print(e)
+            if os.path.isfile(model_local_path):
+                self._model = pickle.load(open(model_local_path, 'rb'))
+                op_model = True
 
-        return op
+        if not op_model:
+            return False
+
+        op_dv = False
+        dv_local_path = f"{TEMP_MODEL_DIR}/dict_vectorizer.pkl"
+        try:
+            s3_client.download_file(S3_BUCKET_NAME, DV_S3_PATH, dv_local_path)
+            self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
+            op_dv = True
+        except Exception as e: # pylint: disable=broad-exception-caught
+            print(e)
+            if os.path.isfile(dv_local_path):
+                self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
+                op_dv = True
+
+        return op_model and op_dv
+
 
     def predict(self, df_values: pd.DataFrame) -> list:
         """
@@ -138,7 +151,7 @@ class ModelLoader:
             x_values = x_values.rename(columns=columns)
             # print(type(x_values))
             # print(x_values.shape)
-        except Exception as  e:
+        except Exception as  e: # pylint: disable=broad-exception-caught
             print(e)
 
         if self._model is None:
@@ -146,7 +159,7 @@ class ModelLoader:
 
         try:
             model_out = self._model.predict(x_values)
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             print(e)
             return None
         return model_out.tolist()
@@ -177,8 +190,8 @@ def prepare_features(ride):
     df["pickup_datetime"] = pd.to_datetime(df["pickup_datetime"])
     df["pickup_weekday"] = df["pickup_datetime"].apply(lambda x: str(x.weekday()))
     df["pickup_minutes"] = df["pickup_datetime"].apply(lambda x: x.hour + 60 * x.minute)
-    df["PULocationID"] = "PU_" + df["PULocationID"]
-    df["DOLocationID"] = "DO_" + df["DOLocationID"]
+    df["PULocationID"] = "PU_" + df["PULocationID"].astype(str)
+    df["DOLocationID"] = "DO_" + df["DOLocationID"].astype(str)
 
     numerical_cols = [
         "pickup_minutes",
@@ -241,4 +254,3 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=8000)
-
