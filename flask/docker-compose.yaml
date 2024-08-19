@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: flask
     ports:
       - "8001:8000"
     environment:
@@ -29,6 +30,7 @@ services:
     build:
       context: .
       dockerfile: test_requests.dockerfile
+    container_name: test
     command: python3 -m unittest test_requests.py
     environment:
       - AWS_ACCESS_KEY_ID=test
