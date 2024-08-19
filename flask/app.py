@@ -32,11 +32,10 @@ import os
 import pickle
 
 import boto3
-import numpy
 import pandas as pd
-import sklearn
+import sklearn  # pylint: disable=unused-import
 
-import mlflow
+import mlflow  # pylint: disable=unused-import
 from flask import Flask, jsonify, request
 
 # Load AWS credentials and S3 bucket information from environment variables
@@ -104,12 +103,14 @@ class ModelLoader:
         try:
             print(MODEL_S3_PATH)
             s3_client.download_file(S3_BUCKET_NAME, MODEL_S3_PATH, model_local_path)
-            self._model = pickle.load(open(model_local_path, 'rb'))
+            with open(model_local_path, 'rb') as frb:
+                self._model = pickle.load(frb)
             op_model = True
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             print(e)
             if os.path.isfile(model_local_path):
-                self._model = pickle.load(open(model_local_path, 'rb'))
+                with open(model_local_path, 'rb') as frb:
+                    self._model = pickle.load(frb)
                 op_model = True
 
         if not op_model:
@@ -119,12 +120,14 @@ class ModelLoader:
         dv_local_path = f"{TEMP_MODEL_DIR}/dict_vectorizer.pkl"
         try:
             s3_client.download_file(S3_BUCKET_NAME, DV_S3_PATH, dv_local_path)
-            self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
+            with open(dv_local_path, 'rb') as frb:
+                self._dict_vectorizer = pickle.load(frb)
             op_dv = True
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             print(e)
             if os.path.isfile(dv_local_path):
-                self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
+                with open(dv_local_path, 'rb') as frb:
+                    self._dict_vectorizer = pickle.load(frb)
                 op_dv = True
 
         return op_model and op_dv
@@ -151,7 +154,7 @@ class ModelLoader:
             x_values = x_values.rename(columns=columns)
             # print(type(x_values))
             # print(x_values.shape)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             print(e)
 
         if self._model is None:
@@ -159,7 +162,7 @@ class ModelLoader:
 
         try:
             model_out = self._model.predict(x_values)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             print(e)
             return None
         return model_out.tolist()
