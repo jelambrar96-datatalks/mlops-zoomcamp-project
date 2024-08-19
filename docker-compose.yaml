@@ -398,7 +398,9 @@ services:
       - POSTGRES_DB=grafana
     volumes: 
       - postgres-grafana-volume:/var/lib/postgresql/data
-      - ./postgresgrafana/init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgresgrafana/init:/docker-entrypoint-initdb.d/
+    ports:
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "sh -c 'pg_isready -U grafana -d grafana'"]
       interval: 10s
@@ -453,6 +455,8 @@ services:
       #- PREFECT_UI_URL=http://external-ip:4200/api
       #- PREFECT_API_URL=http://external-ip:4200/api
       - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_SERVER_API_PORT=4200
+      - PREFECT_SERVER_API_URL=http://0.0.0.0:4200
       - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@postgresprefect:5432/prefect
       # Uncomment the following line if you want to use the 'S3 Bucket' storage block instead of the older 'S3' storage
       # - EXTRA_PIP_PACKAGES=prefect-aws
@@ -473,7 +477,8 @@ services:
   agent:
     image: prefecthq/prefect:2.11.5-python3.11
     restart: always
-    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "YOUR_WORK_QUEUE_NAME"]
+    # entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "default"]
+    command: prefect agent start -q "default"
     environment:
       - PREFECT_API_URL=http://prefectserver:4200/api
     #    Use PREFECT_API_KEY if connecting the agent to Prefect Cloud
@@ -483,33 +488,48 @@ services:
         condition: service_healthy
 
 
-#   dummydatagenerator:
-#     build:
-#       context: ./dummydatagenerator
-#       dockerfile: Dockerfile
-#     environment:
-#       - START_TIME=$AIRFLOW_START_TIME
-#       - WHILE_TRUE=False
-#       - SEND_TIMEOUT=20
-#       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-#       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-#       - AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
-#       - S3_BUCKET_NAME=$S3_BUCKET_NAME
-#       - POSTGREST_HOST=postgresgrafana
-#       - POSTGREST_PORT=5432
-#       - POSTGREST_USERNAME=$GRAFANA_POSTGRES_USER
-#       - POSTGREST_PASSWORD=$GRAFANA_POSTGRES_PASS
-#       - POSTGREST_DATABASE=grafana
-#       - PREFECT_API_URL=http://prefectserver:4200/api
-#     entrypoint: ["python3", "app.py"]
-#     depends_on:
-#       postgresgrafana:
-#         condition: service_healthy
-#       prefectserver:
-#         condition: service_healthy
-#       localstack:
-#         condition: service_healthy
+  perfectsample:
+    image: prefecthq/prefect:2.11.5-python3.11
+    working_dir: "/root/flows"
+    volumes:
+      - "./flows:/root/flows:ro"
+    environment:
+      - PREFECT_API_URL=http://prefectserver:4200/api
+    command: python3 flow.py
+    depends_on:
+      prefectserver:
+        condition: service_healthy
 
+
+  dummydatagenerator:
+    build:
+      context: ./dummydatagenerator
+      dockerfile: Dockerfile
+    working_dir: "/app"
+    volumes:
+      - "./dummydatagenerator/app.py:/app/app.py:ro"
+    command: python3 app.py
+    environment:
+      - START_TIME=$AIRFLOW_START_TIME
+      - WHILE_TRUE=False
+      - SEND_TIMEOUT=20
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
+      - S3_BUCKET_NAME=$S3_BUCKET_NAME
+      - POSTGRES_HOST=postgresgrafana
+      - POSTGRES_PORT=5432
+      - POSTGRES_USERNAME=$GRAFANA_POSTGRES_USER
+      - POSTGRES_PASSWORD=$GRAFANA_POSTGRES_PASS
+      - POSTGRES_DATABASE=grafana
+      - PREFECT_API_URL=http://prefectserver:4200/api
+    depends_on:
+      postgresgrafana:
+        condition: service_healthy
+      prefectserver:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
 
 
 
