@@ -3,30 +3,27 @@ Airflow DAG that compared all registred mlflow
 models and deploy the better
 """
 
-
 import os
 import json
-
+import pickle
 from io import BytesIO
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 
+import s3fs  # pylint: disable=unused-import
 import boto3
 import pandas as pd
 import requests
-import requests.exceptions as rexcep
-import s3fs # pylint: disable=unused-import
-
-import pickle
-
-import mlflow
 import mlflow.sklearn
+import requests.exceptions as rexcep
 from mlflow.tracking import MlflowClient
-
-from airflow import DAG
-from airflow.operators.dummy import DummyOperator # pylint: disable=import-error,no-name-in-module
+from dateutil.relativedelta import relativedelta
+from airflow.operators.dummy import (  # pylint: disable=import-error,no-name-in-module
+    DummyOperator,
+)
 from airflow.operators.python import PythonOperator
 
+import mlflow
+from airflow import DAG
 
 # get env vars
 AIRFLOW_START_TIME = os.getenv("AIRFLOW_START_TIME", "2023-01-01")
@@ -39,21 +36,19 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
 
-S3_ENDPOINT_URL = "http://localstack:4566" # taken from docker-compose.yaml
+S3_ENDPOINT_URL = "http://localstack:4566"  # taken from docker-compose.yaml
 
 STORAGE_OPTIONS = {
     'key': AWS_ACCESS_KEY_ID,
     'secret': AWS_SECRET_ACCESS_KEY,
-    'client_kwargs': {
-        'endpoint_url': S3_ENDPOINT_URL
-    }
+    'client_kwargs': {'endpoint_url': S3_ENDPOINT_URL},
 }
 
 # Create a session to interact with LocalStack
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_DEFAULT_REGION
+    region_name=AWS_DEFAULT_REGION,
 )
 
 # Configure LocalStack endpoint
@@ -79,16 +74,13 @@ dag_03_deploy = DAG(
     'dag_03_deploy',
     default_args=default_args,
     description='A simple DAG to compare models and deployed',
-    schedule_interval='0 2 1 * *', # At 00:00 on day-of-month 1.
+    schedule_interval='0 2 1 * *',  # At 00:00 on day-of-month 1.
     start_date=datetime.strptime(AIRFLOW_START_TIME, "%Y-%m-%d"),
     catchup=False,
 )
 
 
-task_start = DummyOperator(
-    task_id="task_start",
-    dag=dag_03_deploy
-)
+task_start = DummyOperator(task_id="task_start", dag=dag_03_deploy)
 
 
 def function_download_model(download_date: str):
@@ -109,10 +101,12 @@ def function_download_model(download_date: str):
     experiment_id = experiment.experiment_id
 
     # Lista las ejecuciones del experimento, ordenadas por RMSE
-    runs = client.search_runs(experiment_ids=[experiment_id],
-                            filter_string="",
-                            run_view_type=mlflow.entities.ViewType.ACTIVE_ONLY,
-                            order_by=["metrics.rmse ASC"])
+    runs = client.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string="",
+        run_view_type=mlflow.entities.ViewType.ACTIVE_ONLY,
+        order_by=["metrics.rmse ASC"],
+    )
 
     # Obtén la primera ejecución, que debería ser la de mejor RMSE
     best_run = runs[0]
@@ -141,7 +135,7 @@ def function_download_model(download_date: str):
         "params": best_run.data.params,
         "metrics": best_run.data.metrics,
         "tags": best_run.data.tags,
-        "execution_date": download_date
+        "execution_date": download_date,
     }
 
     model_metadata_path = "/tmp/mlrun/best_model/model_metadata.json"
@@ -167,7 +161,7 @@ task_download_model = PythonOperator(
     dag=dag_03_deploy,
     op_kwargs={
         "download_date": "{{ ds }}",
-    }
+    },
 )
 
 
@@ -186,14 +180,12 @@ task_reaload_flask_app = PythonOperator(
     task_id='task_reaload_flask_app',
     python_callable=function_reaload_flask_app,
     dag=dag_03_deploy,
-
 )
 
 
-end_start = DummyOperator(
-    task_id="end_start",
-    dag=dag_03_deploy
-)
+end_start = DummyOperator(task_id="end_start", dag=dag_03_deploy)
 
 
-task_start >> task_download_model >> task_reaload_flask_app >> end_start # pylint: disable=pointless-statement
+(
+    task_start >> task_download_model >> task_reaload_flask_app >> end_start
+)  # pylint: disable=pointless-statement

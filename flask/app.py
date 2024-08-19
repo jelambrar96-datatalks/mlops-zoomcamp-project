@@ -32,14 +32,12 @@ import os
 import pickle
 
 import boto3
-
 import numpy
 import pandas as pd
 import sklearn
+
 import mlflow
-
-from flask import Flask, request, jsonify
-
+from flask import Flask, jsonify, request
 
 # Load AWS credentials and S3 bucket information from environment variables
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -57,7 +55,7 @@ DV_S3_PATH = os.getenv("DV_S3_PATH")
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_DEFAULT_REGION
+    region_name=AWS_DEFAULT_REGION,
 )
 
 # Configure LocalStack endpoint
@@ -69,6 +67,7 @@ s3_client = session.client(
 # Create a temporary directory for storing the model and vectorizer locally
 TEMP_MODEL_DIR = "/tmp/model/skmodel"
 os.makedirs(TEMP_MODEL_DIR, exist_ok=True)
+
 
 class ModelLoader:
     """
@@ -85,7 +84,7 @@ class ModelLoader:
         get_metadata(): Retrieves metadata from the model.
     """
 
-    def __init__(self, *args, **kwargs): # pylint: disable=unused-argument
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
         """
         Initializes the ModelLoader class with no model or vectorizer loaded.
         """
@@ -107,7 +106,7 @@ class ModelLoader:
             s3_client.download_file(S3_BUCKET_NAME, MODEL_S3_PATH, model_local_path)
             self._model = pickle.load(open(model_local_path, 'rb'))
             op_model = True
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(e)
             if os.path.isfile(model_local_path):
                 self._model = pickle.load(open(model_local_path, 'rb'))
@@ -122,14 +121,13 @@ class ModelLoader:
             s3_client.download_file(S3_BUCKET_NAME, DV_S3_PATH, dv_local_path)
             self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
             op_dv = True
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(e)
             if os.path.isfile(dv_local_path):
                 self._dict_vectorizer = pickle.load(open(dv_local_path, 'rb'))
                 op_dv = True
 
         return op_model and op_dv
-
 
     def predict(self, df_values: pd.DataFrame) -> list:
         """
@@ -145,13 +143,15 @@ class ModelLoader:
             return None
 
         try:
-            x_values = self._dict_vectorizer.transform(df_values.to_dict(orient='records'))
+            x_values = self._dict_vectorizer.transform(
+                df_values.to_dict(orient='records')
+            )
             x_values = pd.DataFrame.sparse.from_spmatrix(x_values).sparse.to_dense()
-            columns = dict( (item, str(i)) for i, item in enumerate(x_values.columns))
+            columns = dict((item, str(i)) for i, item in enumerate(x_values.columns))
             x_values = x_values.rename(columns=columns)
             # print(type(x_values))
             # print(x_values.shape)
-        except Exception as  e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(e)
 
         if self._model is None:
@@ -159,7 +159,7 @@ class ModelLoader:
 
         try:
             model_out = self._model.predict(x_values)
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(e)
             return None
         return model_out.tolist()
@@ -173,6 +173,7 @@ class ModelLoader:
         """
         return self._metadata_model
 
+
 def prepare_features(ride):
     """
     Prepare features for prediction from ride data.
@@ -184,7 +185,7 @@ def prepare_features(ride):
         pd.DataFrame: DataFrame containing transformed features for the model.
     """
     if isinstance(ride, dict):
-        ride = [ ride ]
+        ride = [ride]
     df = pd.DataFrame.from_records(ride)
 
     df["pickup_datetime"] = pd.to_datetime(df["pickup_datetime"])
@@ -193,10 +194,7 @@ def prepare_features(ride):
     df["PULocationID"] = "PU_" + df["PULocationID"].astype(str)
     df["DOLocationID"] = "DO_" + df["DOLocationID"].astype(str)
 
-    numerical_cols = [
-        "pickup_minutes",
-        "trip_distance"
-    ]
+    numerical_cols = ["pickup_minutes", "trip_distance"]
 
     categorical_cols = [
         "PULocationID",
@@ -204,14 +202,16 @@ def prepare_features(ride):
         "pickup_weekday",
     ]
 
-    df = df[ categorical_cols + numerical_cols ]
+    df = df[categorical_cols + numerical_cols]
 
     return df
+
 
 # Instantiate the ModelLoader class
 model_loader = ModelLoader()
 # Instantiate the Flask app
 app = Flask(__name__)
+
 
 @app.route('/reload', methods=['POST'])
 def reload_endpoint():
@@ -225,6 +225,7 @@ def reload_endpoint():
     if flag:
         return jsonify({"result": "success", "reloaded": True})
     return jsonify({"result": "failed", "reloaded": False})
+
 
 @app.route('/predict', methods=['POST'])
 def predict_endpoint():
@@ -242,6 +243,7 @@ def predict_endpoint():
         result = "success"
     return jsonify({"result": result, "predictions": pred})
 
+
 @app.route('/', methods=['GET'])
 def index():
     """
@@ -251,6 +253,7 @@ def index():
         str: Welcome message indicating the service is running.
     """
     return "Zoomcamp application"
+
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=8000)
