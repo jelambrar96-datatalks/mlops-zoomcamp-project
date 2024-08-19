@@ -97,8 +97,8 @@ GRAFANA_POSTGRES_PASS=grafana
 Once the project is running, the following applications will be available on your host:
 
 1. **Airflow Webserver:**
-   - **URL:** `http://localhost:8080`
-   - **Port:** 8080
+   - **URL:** `http://localhost:8081`
+   - **Port:** 8081
 
 2. **Flower (Celery Monitoring Tool):**
    - **URL:** `http://localhost:5555`
@@ -190,11 +190,17 @@ Three main DAGs were implemented to manage the end-to-end process:
 1. **`dag01_download_data`**: 
    - **Purpose**: This DAG is responsible for downloading the NYC taxi dataset, applying necessary filtering processes, and storing the cleaned data files within LocalStack. This step ensures that the data is prepared and available for model training.
 
+![media](docs/media/Screenshot_2024-08-19_11-58-42.png)
+
 2. **`dag02_training`**: 
    - **Purpose**: This DAG is used to build the dataset, train the machine learning models, and register the trained models in MLflow. It automates the entire training pipeline, ensuring consistency and repeatability across model versions.
 
-3. **`dag03_deploy`**: 
+![media](docs/media/Screenshot_2024-08-19_11-59-12.png)
+
+1. **`dag03_deploy`**: 
    - **Purpose**: This DAG selects the model with the best Root Mean Squared Error (RMSE) from the models registered in MLflow. It then uploads the selected model to an S3 bucket simulated by LocalStack, where it can be accessed by a Flask application for making predictions.
+
+![media](docs/media/Screenshot_2024-08-19_11-59-23.png)
 
 By leveraging Airflow for workflow orchestration, the project benefits from automated, reliable, and scalable management of data processing, model training, and deployment processes. This approach ensures that each step is executed efficiently and in the correct sequence, facilitating the seamless integration of machine learning models into the production environment.
 
@@ -255,6 +261,8 @@ def predict_endpoint():
 _______________________________________________________________________________
 
 ## 7. Model monitoring with grafana, prefect and evidently
+
+
 
 _______________________________________________________________________________
 
@@ -394,17 +402,210 @@ class RequestsTest(unittest.TestCase):
 
 ### 8.3. Linter and formater code 
 
+To improve the quality and readability of the Python code, the packages **pylint**, **black**, and **isort** were implemented. Each of these tools serves a specific purpose in maintaining clean, well-structured, and consistent code.
 
-### 8.4. Makefile 
+#### 8.3.1. Pylint
+
+**Pylint** is a static code analysis tool that checks for errors in Python code, enforces coding standards, and detects code smells. It examines the code for issues such as unused variables, incorrect function arguments, and non-compliant naming conventions. Pylint assigns a score to the code based on its adherence to best practices, making it easier for developers to identify areas that need improvement.
+
+#### 8.3.2. Black
+
+**Black** is an opinionated code formatter that automatically reformats Python code to conform to a consistent style. By following the PEP 8 guidelines, Black ensures that code is uniformly structured across a project, reducing the likelihood of stylistic discrepancies. It operates by reformatting the entire file rather than only the modified sections, which simplifies the code review process and helps maintain a consistent style.
+
+#### 8.3.3. Isort
+
+**Isort** is a tool that automatically sorts and organizes import statements in Python files. It arranges imports into groups (standard library, third-party packages, local imports) and orders them alphabetically within each group. By maintaining a clean and organized import structure, Isort helps prevent import conflicts and improves code readability.
+
+#### 8.3.4. Combined Benefits
+
+By integrating **Pylint**, **Black**, and **Isort** into the development workflow, the project benefits from enhanced code quality, consistency, and maintainability. Pylint ensures that the code adheres to best practices, Black standardizes formatting across the codebase, and Isort keeps imports tidy and organized. This combination results in cleaner, more readable, and more reliable Python code.
+
+### 8.4. Pre-commit hooks
+
+```yaml
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v3.2.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-yaml
+    - id: check-added-large-files
+- repo: https://github.com/pycqa/isort
+  rev: 5.10.1
+  hooks:
+    - id: isort
+      name: isort (python)
+- repo: https://github.com/psf/black
+  rev: 22.6.0
+  hooks:
+    - id: black
+      language_version: python3.9
+- repo: local
+  hooks:
+    - id: pylint
+      name: pylint
+      entry: pylint
+      language: system
+      types: [python]
+      args: [
+        "-rn", # Only display messages
+        "--recursive=y",
+        "airflow/dags/*.py"
+      ]
+```
+
+This `pre-commit-config.yaml` file is a configuration file for the [pre-commit](https://pre-commit.com/) tool, which is used to manage and run linters and other code quality tools before code is committed to a version control system, like Git. Below is an explanation of the different parts of the file:
+
+#### 8.4.1. Overall Structure
+- The file defines a set of repositories (`repos`) that contain hooks.
+- Each hook specifies a tool or a script that will be run on the code before it's committed.
+- The hooks are run in the order they are listed in the file.
+
+#### 8.4.2. Repositories and Hooks
+
+1. **Pre-commit Hooks from `pre-commit-hooks` Repository**
+   - **Repository:** `https://github.com/pre-commit/pre-commit-hooks`
+   - **Version:** `v3.2.0`
+   - **Hooks:**
+     - **`trailing-whitespace`:** Removes trailing whitespace in files.
+     - **`end-of-file-fixer`:** Ensures that files end with exactly one newline.
+     - **`check-yaml`:** Validates YAML files to ensure they are correctly formatted.
+     - **`check-added-large-files`:** Prevents adding large files to the repository (by default, files larger than 500kB).
+
+2. **Isort Hook from `pycqa/isort` Repository**
+   - **Repository:** `https://github.com/pycqa/isort`
+   - **Version:** `5.10.1`
+   - **Hook:**
+     - **`isort`:** Automatically sorts imports in Python files according to PEP8 standards.
+
+3. **Black Hook from `psf/black` Repository**
+   - **Repository:** `https://github.com/psf/black`
+   - **Version:** `22.6.0`
+   - **Hook:**
+     - **`black`:** A code formatter for Python that formats Python code to be consistent with PEP8. 
+     - **`language_version: python3.9`:** Specifies that Black should run using Python 3.9.
+
+4. **Local Hook for `pylint`**
+   - **Repository:** `local`
+   - **Hook:**
+     - **`id: pylint`:** Runs `pylint`, a Python code analyzer.
+     - **`name: pylint`:** Specifies the name of the hook.
+     - **`entry: pylint`:** The command to be executed.
+     - **`language: system`:** Indicates that the hook uses a system-installed tool rather than a Python package managed by `pre-commit`.
+     - **`types: [python]`:** Specifies that this hook should only run on Python files.
+     - **`args`:**
+       - **`"-rn"`:** Only display messages (no full report).
+       - **`"airflow/dags/*.py"`:** Check this files.
+
+#### 8.4.3. Summary
+- This configuration sets up various tools to automatically enforce code quality and style guidelines whenever a commit is made.
+- `pre-commit-hooks` provides general-purpose hooks for common issues like trailing whitespace or improperly formatted YAML files.
+- `isort` and `black` are specific to Python and help maintain consistent import ordering and code formatting, respectively.
+- `pylint` is also Python-specific and provides static analysis to catch potential issues in the code.
 
 
-### 8.5. Pre-commit hooks
+### 8.5. Makefile 
 
+```makefile
+LOCAL_TAG:=$(shell date +"%Y-%m-%d-%H-%M")
 
-### 8.6. CI/CD Pipeline with Jenkins
+test:
+	pytest flask/test_app.py
 
+quality_checks:
+	isort flask/*.py
+	isort airflow/dags/*.py
+	black flask/*.py
+	black airflow/dags/*.py
+	pylint flask/*.py
+	pylint airflow/dags/*.py
 
+build: quality_checks test
+	docker compose --env-file .env build
 
+integration_test: build
+	bash flask/test_requests.sh
 
+setup:
+	pre-commit install
+```
 
+This `Makefile` is designed to automate various tasks involved in developing and maintaining a project, likely a Python-based application that includes Flask and Airflow components. Below is an explanation of each part of the `Makefile`:
 
+#### 8.5.1. `LOCAL_TAG`
+```makefile
+LOCAL_TAG:=$(shell date +"%Y-%m-%d-%H-%M")
+```
+- **Purpose**: This variable captures the current date and time, formatted as `YYYY-MM-DD-HH-MM`.
+- **Use Case**: This tag can be useful for versioning builds or Docker images with a timestamp, though it is not explicitly used in the tasks below.
+
+#### 8.5.2. `test`
+```makefile
+test:
+	pytest flask/test_app.py
+```
+- **Purpose**: This target runs unit tests located in `flask/test_app.py` using `pytest`.
+- **Use Case**: Use this target to ensure that the Flask application is functioning correctly by running the test suite.
+
+#### 8.5.3. `quality_checks`
+```makefile
+quality_checks:
+	isort flask/*.py
+	isort airflow/dags/*.py
+	black flask/*.py
+	black airflow/dags/*.py
+	pylint flask/*.py
+	pylint airflow/dags/*.py
+```
+- **Purpose**: This target runs code quality and formatting checks across the project.
+  - **isort**: Sorts and organizes import statements in all `.py` files within the `flask/` and `airflow/dags/` directories.
+  - **black**: Formats the Python code in these directories to follow a consistent style.
+  - **pylint**: Analyzes the code for errors, enforcing coding standards and best practices.
+- **Use Case**: Run this target to clean up code formatting and identify any issues before proceeding to further steps like building or testing.
+
+#### 8.5.4. `build`
+```makefile
+build: quality_checks test
+	docker compose --env-file .env build
+```
+- **Purpose**: This target builds Docker images using `docker compose`.
+  - **Dependencies**: It first runs the `quality_checks` and `test` targets to ensure code quality and test correctness before building.
+  - **--env-file .env**: Uses environment variables defined in the `.env` file during the build process.
+- **Use Case**: Run this target to build Docker images for the application, ensuring that only high-quality, tested code is packaged.
+
+#### 8.5.5. `integration_test`
+```makefile
+integration_test: build
+	bash flask/test_requests.sh
+```
+- **Purpose**: This target runs integration tests.
+  - **Dependencies**: It first runs the `build` target to ensure that the latest code is built into the Docker images.
+  - **bash flask/test_requests.sh**: Executes a shell script that likely contains integration tests by making HTTP requests to the Flask API.
+- **Use Case**: Run this target to perform end-to-end testing, ensuring that the integrated components of the application function together as expected.
+
+#### 8.5.6. `setup`
+```makefile
+setup:
+	pre-commit install
+```
+- **Purpose**: This target sets up Git pre-commit hooks using `pre-commit`.
+  - **pre-commit install**: Installs the pre-commit hooks defined in the `.pre-commit-config.yaml` file, ensuring that certain checks (like `black`, `isort`, etc.) run automatically before each commit.
+- **Use Case**: Run this target once during the initial project setup to enforce code quality checks and formatting standards before commits are made.
+
+#### 8.5.7. Summary
+- **`test`**: Runs unit tests with `pytest`.
+- **`quality_checks`**: Ensures the code is well-formatted and adheres to best practices using `isort`, `black`, and `pylint`.
+- **`build`**: Builds Docker images after running tests and quality checks.
+- **`integration_test`**: Runs integration tests after building Docker images.
+- **`setup`**: Sets up pre-commit hooks to enforce quality checks on each commit.
+
+This `Makefile` streamlines the development workflow by automating tasks, ensuring code quality, and facilitating reliable builds and tests.
+
+____
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/jelambrar1)
+
+Made with Love ❤️ by [@jelambrar96](https://github.com/jelambrar96)
