@@ -22,6 +22,24 @@ Applying machine learning to predict taxi trip durations offers several advantag
 
 Leveraging machine learning models and adopting MLOps practices is key to addressing the challenge of predicting taxi trip durations in New York City. This approach not only enhances the precision of predictions but also ensures the sustainability and relevance of the models in a dynamic environment.
 
+### Description of solution
+
+For this project, various tools were utilized to build and manage the different components:
+
+- **Python** was the primary language used for developing most elements, such as the Airflow DAGs and the Flask API.
+- **Airflow** was employed to construct pipelines for task orchestration.
+- **Pandas** and **PyArrow** were used for data management during the training process.
+- The models were developed using **Scikit-learn (sklearn)**.
+- Model metrics were also calculated using **Scikit-learn**.
+- **MLflow** was used to track experiments and manage model registration.
+- **Flask** was used to develop an API, allowing the best model (based on RMSE) to be deployed and used for predicting trip durations.
+- **Pytest** and **Unittest** were employed to build unit and integration tests to evaluate the API.
+- The applications were containerized using **Docker** to facilitate deployment and potential migration to the cloud.
+- **Pylint**, **isort**, and **Black** were used to improve the quality of the written code.
+- A **Makefile** was used to organize the deployment steps.
+- **LocalStack** to store dataset, models and metadata.
+
+![media](docs/media/mlops-zoomcamp.drawio.png)
 _____________________________
 
 ## 2. Reproducibility:
@@ -167,6 +185,8 @@ For each model, the following performance metrics were tracked and stored:
 - **R-squared (R²)**
 
 These metrics provided a comprehensive evaluation of the models' accuracy and effectiveness in predicting taxi trip durations, enabling an informed selection of the best-performing model for deployment.
+
+![media](docs/media/Screenshot_2024-08-19_12-37-14.png)
 _______________________________________________________________________________
 
 ## 5. Workflow orchestration with airflow
@@ -260,7 +280,7 @@ def predict_endpoint():
 
 _______________________________________________________________________________
 
-## 7. Model monitoring with grafana, prefect and evidently
+## 7. Model monitoring with grafana, prefect and evidently (Not-YET)
 
 
 
