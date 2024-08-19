@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=test
+      - S3_ENDPOINT_URL=http://localhost:4566
+      - S3_BUCKET_NAME="mlops-zoomcamp-bucket"
+      - MODEL_S3_PATH="models/skmodels/best_model/model.pkl"
+      - METADATA_S3_PATH="models/skmodels/best_model/model.json"
+      - DV_S3_PATH="models/skmodels/best_model/dict_vectorizer.pkl"
+    volumes:
+      - ./models/skmodels:/tmp/model/skmodel:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+  test-requests:
+    build:
+      context: .
+      dockerfile: test_requests.dockerfile
+    command: python3 -m unittest test_requests.py
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=test
+      - S3_ENDPOINT_URL=http://localhost:4566
+      - S3_BUCKET_NAME="mlops-zoomcamp-bucket"
+      - FLASK_API_URL=http://flask-app:8000
+    volumes:
+      - ./df.csv:/app/df.csv:ro
+    depends_on:
+      flask-app:
+        condition: service_healthy

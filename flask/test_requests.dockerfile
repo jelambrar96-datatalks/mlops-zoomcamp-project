@@ -21,7 +21,7 @@ ENV DV_S3_PATH=$DV_S3_PATH
 
 # Install Python and pip
 RUN apt-get update
-RUN apt-get install -y python3 python3-pip curl
+RUN apt-get install -y python3 python3-pip
 
 # Set the working directory in the container
 WORKDIR /app
@@ -32,8 +32,5 @@ COPY . /app
 # install all python dependences
 RUN pip install -r requirements.txt
 
-# Expose the port that Gunicorn will listen on
-EXPOSE 8000
-
 # Define the command to run the Flask app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+CMD ["python3", "-m", "unittest", "test_requests.py"]
