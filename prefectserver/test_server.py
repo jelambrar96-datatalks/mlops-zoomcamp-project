@@ -4,8 +4,6 @@ This script will attempt to make an HTTP request to http://localhost:4200 and
 print whether the server is up or not.
 """
 
-
-
 import os
 import requests
 
