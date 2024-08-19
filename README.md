@@ -4,19 +4,19 @@
 
 Accurately predicting the duration of taxi trips in New York City is a complex task due to the city's dynamic traffic conditions, diverse weather patterns, and varying demand levels. Traditional methods of estimation often fall short in providing reliable predictions, leading to inefficiencies for both passengers and taxi services. A robust solution is needed to handle the multifaceted nature of these trips and provide accurate duration predictions.
 
-### 1.1 Proposed Solution: Machine Learning Models
+### 1.1. Proposed Solution: Machine Learning Models
 
 Machine learning (ML) models offer a powerful solution to this problem. By leveraging historical trip data and other relevant factors, these models can learn to predict the duration of future trips with a higher degree of accuracy. The ability to incorporate various features such as pickup and drop-off locations, time of day, day of the week, weather conditions, and traffic data makes ML models particularly well-suited for this task.
 
-### 1.2 Available Dataset: TLC Trip Record Data
+### 1.2. Available Dataset: TLC Trip Record Data
 
 To develop and train these machine learning models, we can use the **TLC Trip Record Data**. This dataset is provided by the New York City Taxi and Limousine Commission (TLC) and includes detailed records of taxi trips in the city. The dataset contains features such as pickup and drop-off dates and times, locations, trip distances, and fare amounts, among others. This rich dataset provides a comprehensive foundation for training models to predict trip durations accurately.
 
-### 1.3 Importance of MLOps in Managing Model Lifecycle
+### 1.3. Importance of MLOps in Managing Model Lifecycle
 
 Implementing MLOps (Machine Learning Operations) is crucial in managing the lifecycle of these machine learning models. MLOps practices help automate and streamline the processes of deploying, monitoring, and updating models. Given the ever-changing nature of traffic patterns, road conditions, and other external factors, models must be regularly updated to maintain their accuracy. MLOps ensures that these updates can be made efficiently and reliably, minimizing the risk of deploying outdated models.
 
-### 1.4 Advantages of Applying Machine Learning and MLOps
+### 1.4. Advantages of Applying Machine Learning and MLOps
 
 Applying machine learning to predict taxi trip durations offers several advantages, including improved accuracy in predictions, enhanced user satisfaction, and optimized fleet management for taxi services. Additionally, the application of MLOps provides significant benefits by keeping these models up to date. Without MLOps, models risk becoming obsolete, leading to decreased accuracy and potentially negative impacts on service quality. With MLOps, continuous integration and deployment processes ensure that models are consistently retrained and fine-tuned in response to new data, preserving their effectiveness over time.
 
@@ -26,7 +26,7 @@ _____________________________
 
 ## 2. Reproducibility:
 
-### 2.1 Instructions to Start the Project
+### 2.1. Instructions to Start the Project
 
 1. **Clone the Project Repository:**
    If you haven't already, clone the project repository to your local machine:
@@ -92,7 +92,7 @@ GRAFANA_POSTGRES_PASS=grafana
    docker-compose ps
    ```
 
-### 2.2 Available Applications and Ports on Host
+### 2.2. Available Applications and Ports on Host
 
 Once the project is running, the following applications will be available on your host:
 
@@ -116,7 +116,7 @@ Once the project is running, the following applications will be available on you
    - **URL:** `http://localhost:8000`
    - **Port:** 8000
 
-### 2.3 Notes
+### 2.3. Notes
 
 - Ensure Docker and Docker Compose are installed on your machine before running these commands.
 - If any service fails to start, check the logs using `docker-compose logs <service_name>`.
@@ -124,11 +124,11 @@ Once the project is running, the following applications will be available on you
 
 _____________________________
 
-## 3 NO-cloud used, but `localstack` and `docker-compose` impleplemented
+## 3. NO-cloud used, but `localstack` and `docker-compose` impleplemented
 
 To address the problem of predicting taxi trip durations through MLOps, a decision was made to implement a solution that runs locally rather than in the cloud. This local deployment approach offers several key advantages:
 
-### 3.1 Advantages of Local Development
+### 3.1. Advantages of Local Development
 
 1. **Cost Efficiency**: Running the solution locally eliminates the need for cloud infrastructure costs, such as pay-per-use charges and data transfer fees. This can result in significant savings, especially during the development and testing phases.
 
@@ -138,15 +138,52 @@ To address the problem of predicting taxi trip durations through MLOps, a decisi
 
 4. **Custom Environment Configuration**: A local setup allows for highly customized configurations tailored specifically to the project’s needs. Developers can tweak settings and optimize performance without being constrained by the limitations or default configurations of cloud services.
 
-### 3.2 Containerized Infrastructure with Docker and Docker Compose
+### 3.2. Containerized Infrastructure with Docker and Docker Compose
 
 Despite being a local solution, Docker and Docker Compose were used to build a container-based infrastructure. This approach enables the entire environment to be packaged into containers, making it portable and consistent across different development machines. The use of Docker ensures that the solution can be easily scaled to the cloud if needed in the future. Docker Compose simplifies the orchestration of these containers, allowing for a streamlined and efficient setup of complex multi-container applications.
 
-### 3.3 LocalStack for Simulated Cloud Storage
+### 3.3. LocalStack for Simulated Cloud Storage
 
 Although the solution does not utilize the cloud, LocalStack was implemented to simulate cloud services for data storage. LocalStack mimics the behavior of AWS S3 buckets, allowing developers to work with cloud-like storage services directly from their local environment. This ensures that the transition to a full cloud deployment can be seamless, as the local development environment closely mirrors the cloud infrastructure.
 
 _______________________________________________________________________________
 
 ## 4. Experiment tracking and model registry with `mlflow`
+
+_______________________________________________________________________________
+
+
+## 5. Workflow orchestration with airflow
+
+_______________________________________________________________________________
+
+## 6. Model deployment with flask
+
+_______________________________________________________________________________
+
+## 7. Model monitoring with grafana, prefect and evidently
+
+_______________________________________________________________________________
+
+## 8. Best practices 
+
+### 8.1 Unit test to model deployment
+
+### 8.2 Integration test to model deployment 
+
+### 8.3 Linter and formater code 
+
+
+### 8.4 Makefile 
+
+
+### 8.5 Pre-commit hooks
+
+
+### CI/CD Pipeline with Jenkins
+
+
+
+
+
 
